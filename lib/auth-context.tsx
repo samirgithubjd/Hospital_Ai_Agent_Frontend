@@ -4,16 +4,20 @@ import React, { createContext, useContext, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { removeToken } from "@/lib/api/auth";
 
+type UserRole = "admin" | "doctor" | "patient";
+
 interface User {
     id: string;
     email: string;
     name?: string;
+    role: UserRole;
 }
 
 interface AuthContextType {
     user: User | null;
     isLoading: boolean;
     isAuthenticated: boolean;
+    userRole: UserRole | null;
     logout: () => void;
     setUser: (user: User | null) => void;
 }
@@ -35,6 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         isLoading,
         isAuthenticated: !!user,
+        userRole: user?.role || null,
         logout,
         setUser,
     };

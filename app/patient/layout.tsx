@@ -1,7 +1,7 @@
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 
-export default function DashboardLayout({
+export default function PatientLayout({
     children,
 }: {
     children: React.ReactNode;

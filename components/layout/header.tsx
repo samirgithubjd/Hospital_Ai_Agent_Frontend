@@ -8,7 +8,7 @@ import { useAuth } from "@/lib/auth-context";
 
 export function Header() {
     const pathname = usePathname();
-    const { user, logout } = useAuth();
+    const { user, logout, userRole } = useAuth();
     const [showUserMenu, setShowUserMenu] = useState(false);
 
     if (pathname === "/login") {
@@ -17,12 +17,17 @@ export function Header() {
 
     const getPageTitle = () => {
         const titles: Record<string, string> = {
-            "/dashboard": "Dashboard",
+            "/dashboard": "Admin Dashboard",
             "/calls": "Call Logs",
             "/patients": "Patients",
             "/appointments": "Appointments",
             "/ai-settings": "AI Settings",
             "/settings": "Settings",
+            "/doctor/dashboard": "Doctor Dashboard",
+            "/doctor/appointments": "My Appointments",
+            "/patient/dashboard": "My Dashboard",
+            "/patient/appointments": "My Appointments",
+            "/patient/book-appointment": "Book Appointment",
         };
         return titles[pathname] || "Dashboard";
     };
@@ -65,7 +70,7 @@ export function Header() {
                                     {user?.name || "User"}
                                 </p>
                                 <p className="text-xs text-slate-400">
-                                    Receptionist
+                                    {userRole ? userRole.charAt(0).toUpperCase() + userRole.slice(1) : "User"}
                                 </p>
                             </div>
                             <ChevronDown className="w-4 h-4 text-slate-400 ml-2" />

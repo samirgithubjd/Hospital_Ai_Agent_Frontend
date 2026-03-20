@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import { Sidebar } from "@/components/layout/sidebar";
-import { Header } from "@/components/layout/header";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
@@ -24,15 +22,7 @@ export default function RootLayout({
             </head>
             <body className="bg-slate-900 text-slate-50">
                 <Providers>
-                    <div className="flex h-screen overflow-hidden">
-                        <Sidebar />
-                        <div className="flex-1 flex flex-col overflow-hidden">
-                            <Header />
-                            <main className="flex-1 overflow-auto">
-                                {children}
-                            </main>
-                        </div>
-                    </div>
+                    {children}
                 </Providers>
             </body>
         </html>
