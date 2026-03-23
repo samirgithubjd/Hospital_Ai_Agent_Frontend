@@ -158,7 +158,7 @@ export function Sidebar() {
                         <Bot className="w-6 h-6 text-blue-500" />
                         HospitalAI
                     </h1>
-                    <p className="text-xs text-slate-400 mt-1">{roleLabel}</p>
+                    {/* <p className="text-xs text-slate-400 mt-1">{roleLabel}</p> */}
                 </div>
 
                 {/* Navigation */}

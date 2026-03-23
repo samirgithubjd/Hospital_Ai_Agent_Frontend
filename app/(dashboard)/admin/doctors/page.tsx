@@ -17,6 +17,7 @@ import {
     approveDoctor,
     rejectDoctor,
     deleteDoctor,
+    deactivateDoctor,
 } from "@/lib/api/admin";
 import { useAuth } from "@/lib/auth-context";
 
@@ -27,6 +28,11 @@ interface Doctor {
     lastName: string;
     specialization?: string;
     licenseNumber?: string;
+    phone?: string;
+    mobileNumber?: string;
+    department?: string;
+    city?: string;
+    experience?: number;
     isActive: boolean;
     createdAt?: string;
     updatedAt?: string;
@@ -39,6 +45,14 @@ export default function AdminDoctorsPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [doctors, setDoctors] = useState<Doctor[]>([]);
     const [pendingDoctors, setPendingDoctors] = useState<Doctor[]>([]);
+    const [deactivateReason, setDeactivateReason] = useState("");
+    const [showDeactivateDialog, setShowDeactivateDialog] = useState(false);
+    const [selectedDoctorId, setSelectedDoctorId] = useState<string | null>(null);
+
+    // Pagination
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [pageLimit] = useState(10);
 
     // Create doctor form
     const [showCreateForm, setShowCreateForm] = useState(false);
@@ -48,8 +62,13 @@ export default function AdminDoctorsPage() {
         confirmPassword: "",
         firstName: "",
         lastName: "",
+        phone: "",
+        mobileNumber: "",
         specialization: "",
+        department: "",
         licenseNumber: "",
+        city: "",
+        experience: "",
     });
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -68,11 +87,13 @@ export default function AdminDoctorsPage() {
         fetchPendingDoctors();
     }, []);
 
-    const fetchDoctors = async () => {
+    const fetchDoctors = async (page: number = 1) => {
         try {
             setIsLoading(true);
-            const result = await getAllDoctors();
-            setDoctors(result);
+            const result = await getAllDoctors(page, pageLimit);
+            setDoctors(result.data);
+            setTotalPages(result.pagination.pages);
+            setCurrentPage(page);
         } catch (error: any) {
             const message =
                 error.response?.data?.message || "Failed to fetch doctors";
@@ -127,8 +148,15 @@ export default function AdminDoctorsPage() {
                 password: createFormData.password,
                 firstName: createFormData.firstName,
                 lastName: createFormData.lastName,
+                phone: createFormData.phone || undefined,
+                mobileNumber: createFormData.mobileNumber || undefined,
                 specialization: createFormData.specialization,
+                department: createFormData.department || undefined,
                 licenseNumber: createFormData.licenseNumber,
+                city: createFormData.city || undefined,
+                experience: createFormData.experience
+                    ? parseInt(createFormData.experience)
+                    : undefined,
             });
 
             toast.success("Doctor created successfully! Awaiting approval.");
@@ -140,8 +168,13 @@ export default function AdminDoctorsPage() {
                 confirmPassword: "",
                 firstName: "",
                 lastName: "",
+                phone: "",
+                mobileNumber: "",
                 specialization: "",
+                department: "",
                 licenseNumber: "",
+                city: "",
+                experience: "",
             });
             setShowCreateForm(false);
             setActiveTab("pending");
@@ -218,6 +251,32 @@ export default function AdminDoctorsPage() {
         }
     };
 
+    const handleDeactivateDoctor = async () => {
+        console.log('deactivate doc clicked------->');
+        console.log('selectedDoctorId:', selectedDoctorId);
+        
+        if (!selectedDoctorId) return;
+        console.log('deactivate doc clicked-------> 258');
+
+
+        try {
+            await deactivateDoctor(selectedDoctorId, deactivateReason || undefined);
+            toast.success("Doctor deactivated successfully!");
+            setShowDeactivateDialog(false);
+            setDeactivateReason("");
+            setSelectedDoctorId(null);
+
+            // Refresh lists
+            await fetchDoctors();
+        } catch (error: any) {
+            const message =
+                error.response?.data?.message ||
+                "Failed to deactivate doctor";
+            console.error("Deactivate doctor error:", error);
+            toast.error(message);
+        }
+    };
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -228,6 +287,15 @@ export default function AdminDoctorsPage() {
                 <p className="text-slate-400">
                     Create, approve, and manage doctors in the system
                 </p>
+                <div className="flex gap-3 mt-4">
+                    <Button
+                        onClick={() => router.push("/admin/slots")}
+                        variant="secondary"
+                        className="flex items-center gap-2"
+                    >
+                        📅 Manage Appointment Slots
+                    </Button>
+                </div>
             </div>
 
             {/* Tabs */}
@@ -321,18 +389,71 @@ export default function AdminDoctorsPage() {
                                                     {doctor.licenseNumber}
                                                 </p>
                                             )}
+                                            {doctor.phone && (
+                                                <p className="text-sm text-slate-400">
+                                                    <span className="text-slate-500">
+                                                        Phone:
+                                                    </span>{" "}
+                                                    {doctor.phone}
+                                                </p>
+                                            )}
+                                            {doctor.mobileNumber && (
+                                                <p className="text-sm text-slate-400">
+                                                    <span className="text-slate-500">
+                                                        Mobile:
+                                                    </span>{" "}
+                                                    {doctor.mobileNumber}
+                                                </p>
+                                            )}
+                                            {doctor.department && (
+                                                <p className="text-sm text-slate-400">
+                                                    <span className="text-slate-500">
+                                                        Department:
+                                                    </span>{" "}
+                                                    {doctor.department}
+                                                </p>
+                                            )}
+                                            {doctor.city && (
+                                                <p className="text-sm text-slate-400">
+                                                    <span className="text-slate-500">
+                                                        City:
+                                                    </span>{" "}
+                                                    {doctor.city}
+                                                </p>
+                                            )}
+                                            {doctor.experience && (
+                                                <p className="text-sm text-slate-400">
+                                                    <span className="text-slate-500">
+                                                        Experience:
+                                                    </span>{" "}
+                                                    {doctor.experience} years
+                                                </p>
+                                            )}
                                         </div>
-                                        <Button
-                                            onClick={() =>
-                                                handleDeleteDoctor(doctor.id)
-                                            }
-                                            variant="ghost"
-                                            size="sm"
-                                            className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                            Delete
-                                        </Button>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                onClick={() => {
+                                                    setSelectedDoctorId(doctor.id);
+                                                    setShowDeactivateDialog(true);
+                                                }}
+                                                variant="ghost"
+                                                size="sm"
+                                                className="text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+                                            >
+                                                Deactivate
+                                            </Button>
+                                            <Button
+                                                onClick={() =>
+                                                    handleDeleteDoctor(doctor.id)
+                                                }
+                                                variant="ghost"
+                                                size="sm"
+                                                className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                                Delete
+                                            </Button>
+                                        </div>
                                     </div>
                                 </Card>
                             ))}
@@ -389,6 +510,46 @@ export default function AdminDoctorsPage() {
                                                         License:
                                                     </span>{" "}
                                                     {doctor.licenseNumber}
+                                                </p>
+                                            )}
+                                            {doctor.phone && (
+                                                <p className="text-sm text-slate-400">
+                                                    <span className="text-slate-500">
+                                                        Phone:
+                                                    </span>{" "}
+                                                    {doctor.phone}
+                                                </p>
+                                            )}
+                                            {doctor.mobileNumber && (
+                                                <p className="text-sm text-slate-400">
+                                                    <span className="text-slate-500">
+                                                        Mobile:
+                                                    </span>{" "}
+                                                    {doctor.mobileNumber}
+                                                </p>
+                                            )}
+                                            {doctor.department && (
+                                                <p className="text-sm text-slate-400">
+                                                    <span className="text-slate-500">
+                                                        Department:
+                                                    </span>{" "}
+                                                    {doctor.department}
+                                                </p>
+                                            )}
+                                            {doctor.city && (
+                                                <p className="text-sm text-slate-400">
+                                                    <span className="text-slate-500">
+                                                        City:
+                                                    </span>{" "}
+                                                    {doctor.city}
+                                                </p>
+                                            )}
+                                            {doctor.experience && (
+                                                <p className="text-sm text-slate-400">
+                                                    <span className="text-slate-500">
+                                                        Experience:
+                                                    </span>{" "}
+                                                    {doctor.experience} years
                                                 </p>
                                             )}
                                         </div>
@@ -529,6 +690,26 @@ export default function AdminDoctorsPage() {
                                     />
                                 </div>
 
+                                {/* Department */}
+                                <div>
+                                    <Label htmlFor="department">
+                                        Department
+                                    </Label>
+                                    <Input
+                                        id="department"
+                                        type="text"
+                                        placeholder="e.g., Cardiology"
+                                        value={createFormData.department}
+                                        onChange={(e) =>
+                                            setCreateFormData({
+                                                ...createFormData,
+                                                department: e.target.value,
+                                            })
+                                        }
+                                        disabled={isCreating}
+                                    />
+                                </div>
+
                                 {/* License Number */}
                                 <div>
                                     <Label htmlFor="licenseNumber">
@@ -543,6 +724,86 @@ export default function AdminDoctorsPage() {
                                             setCreateFormData({
                                                 ...createFormData,
                                                 licenseNumber: e.target.value,
+                                            })
+                                        }
+                                        disabled={isCreating}
+                                    />
+                                </div>
+
+                                {/* Phone */}
+                                <div>
+                                    <Label htmlFor="phone">
+                                        Phone Number
+                                    </Label>
+                                    <Input
+                                        id="phone"
+                                        type="tel"
+                                        placeholder="(555) 123-4567"
+                                        value={createFormData.phone}
+                                        onChange={(e) =>
+                                            setCreateFormData({
+                                                ...createFormData,
+                                                phone: e.target.value,
+                                            })
+                                        }
+                                        disabled={isCreating}
+                                    />
+                                </div>
+
+                                {/* Mobile Number */}
+                                <div>
+                                    <Label htmlFor="mobileNumber">
+                                        Mobile Number
+                                    </Label>
+                                    <Input
+                                        id="mobileNumber"
+                                        type="tel"
+                                        placeholder="+1 (555) 000-0000"
+                                        value={createFormData.mobileNumber}
+                                        onChange={(e) =>
+                                            setCreateFormData({
+                                                ...createFormData,
+                                                mobileNumber: e.target.value,
+                                            })
+                                        }
+                                        disabled={isCreating}
+                                    />
+                                </div>
+
+                                {/* City */}
+                                <div>
+                                    <Label htmlFor="city">
+                                        City
+                                    </Label>
+                                    <Input
+                                        id="city"
+                                        type="text"
+                                        placeholder="e.g., New York"
+                                        value={createFormData.city}
+                                        onChange={(e) =>
+                                            setCreateFormData({
+                                                ...createFormData,
+                                                city: e.target.value,
+                                            })
+                                        }
+                                        disabled={isCreating}
+                                    />
+                                </div>
+
+                                {/* Experience */}
+                                <div>
+                                    <Label htmlFor="experience">
+                                        Years of Experience
+                                    </Label>
+                                    <Input
+                                        id="experience"
+                                        type="number"
+                                        placeholder="e.g., 10"
+                                        value={createFormData.experience}
+                                        onChange={(e) =>
+                                            setCreateFormData({
+                                                ...createFormData,
+                                                experience: e.target.value,
                                             })
                                         }
                                         disabled={isCreating}
@@ -673,6 +934,81 @@ export default function AdminDoctorsPage() {
                             </p>
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* Deactivate Doctor Dialog */}
+            {showDeactivateDialog && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <Card className="w-96 p-6">
+                        <h3 className="text-lg font-bold text-slate-50 mb-4">
+                            Deactivate Doctor
+                        </h3>
+                        <p className="text-slate-400 mb-4">
+                            Are you sure you want to deactivate this doctor?
+                        </p>
+                        <div className="mb-4">
+                            <Label htmlFor="reason">
+                                Reason (Optional)
+                            </Label>
+                            <Input
+                                id="reason"
+                                type="text"
+                                placeholder="Enter reason for deactivation"
+                                value={deactivateReason}
+                                onChange={(e) =>
+                                    setDeactivateReason(e.target.value)
+                                }
+                                className="mt-2"
+                            />
+                        </div>
+                        <div className="flex gap-3">
+                            <Button
+                                onClick={handleDeactivateDoctor}
+                                className="flex-1 bg-amber-600 hover:bg-amber-700"
+                            >
+                                Deactivate
+                            </Button>
+                            <Button
+                                onClick={() => {
+                                    setShowDeactivateDialog(false);
+                                    setDeactivateReason("");
+                                    setSelectedDoctorId(null);
+                                }}
+                                variant="ghost"
+                                className="flex-1"
+                            >
+                                Cancel
+                            </Button>
+                        </div>
+                    </Card>
+                </div>
+            )}
+
+            {/* Pagination Controls */}
+            {activeTab === "all" && totalPages > 1 && (
+                <div className="flex items-center justify-center gap-4 mt-6">
+                    <Button
+                        onClick={() =>
+                            fetchDoctors(Math.max(1, currentPage - 1))
+                        }
+                        disabled={currentPage === 1}
+                        variant="ghost"
+                    >
+                        Previous
+                    </Button>
+                    <span className="text-slate-400">
+                        Page {currentPage} of {totalPages}
+                    </span>
+                    <Button
+                        onClick={() =>
+                            fetchDoctors(Math.min(totalPages, currentPage + 1))
+                        }
+                        disabled={currentPage === totalPages}
+                        variant="ghost"
+                    >
+                        Next
+                    </Button>
                 </div>
             )}
         </div>

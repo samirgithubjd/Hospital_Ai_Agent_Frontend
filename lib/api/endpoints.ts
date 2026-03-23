@@ -126,5 +126,7 @@ export async function signUpPatient(payload: SignUpPayload): Promise<LoginRespon
 
 export async function checkHealth(): Promise<{ status: string }> {
     const response = await client.get("/health");
+    console.log('health-------------->', response);
+    
     return response.data;
 }

@@ -13,11 +13,13 @@ import {
     Clock,
     User,
     FileText,
+    Filter,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import Link from "next/link";
 import {
-    getDoctors,
+    getActiveDoctorsPaginated,
+    getAvailableSpecializations,
     getDoctorAvailableSlots,
     Doctor,
     AvailableSlot,
@@ -35,29 +37,64 @@ export default function BookAppointmentPage() {
     // Data
     const [doctors, setDoctors] = useState<Doctor[]>([]);
     const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
+    const [specializations, setSpecializations] = useState<string[]>([]);
 
     // Form data
     const [selectedDoctor, setSelectedDoctor] = useState<string>("");
+    const [selectedSpecialization, setSelectedSpecialization] =
+        useState<string>("");
     const [selectedDate, setSelectedDate] = useState<string>("");
     const [selectedTime, setSelectedTime] = useState<string>("");
     const [reason, setReason] = useState<string>("");
     const [symptoms, setSymptoms] = useState<string>("");
 
-    // Load doctors on mount
+    // Load doctors and specializations on mount
     useEffect(() => {
-        loadDoctors();
+        loadInitialData();
     }, []);
 
-    const loadDoctors = async () => {
+    const loadInitialData = async () => {
         try {
             setIsLoading(true);
-            const data = await getDoctors();
-            setDoctors(data);
+            const [specs, doctorsData] = await Promise.all([
+                getAvailableSpecializations(),
+                getActiveDoctorsPaginated(),
+            ]);
+            setSpecializations(specs);
+            setDoctors(doctorsData.data);
         } catch (error: any) {
-            console.error("Error loading doctors:", error);
+            console.error("Error loading data:", error);
             toast.error("Failed to load available doctors");
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    // Filter doctors when specialization changes
+    const handleSpecializationChange = async (spec: string) => {
+        setSelectedSpecialization(spec);
+        setSelectedDoctor(""); // Reset doctor selection
+
+        if (!spec) {
+            // Load all active doctors
+            try {
+                const data = await getActiveDoctorsPaginated();
+                setDoctors(data.data);
+            } catch (error: any) {
+                console.error("Error loading doctors:", error);
+                toast.error("Failed to load doctors");
+            }
+        } else {
+            // Load doctors by specialization
+            try {
+                const data = await getActiveDoctorsPaginated({
+                    specialization: spec,
+                });
+                setDoctors(data.data);
+            } catch (error: any) {
+                console.error("Error loading doctors:", error);
+                toast.error("Failed to load doctors for this specialization");
+            }
         }
     };
 
@@ -221,6 +258,34 @@ export default function BookAppointmentPage() {
                             </h2>
                         </div>
 
+                        {/* Specialization Filter */}
+                        {specializations.length > 0 && (
+                            <div className="space-y-2 p-4 rounded-lg bg-slate-700/30 border border-slate-600">
+                                <Label className="flex items-center gap-2">
+                                    <Filter className="w-4 h-4" />
+                                    Filter by Specialization
+                                </Label>
+                                <select
+                                    value={selectedSpecialization}
+                                    onChange={(e) =>
+                                        handleSpecializationChange(
+                                            e.target.value
+                                        )
+                                    }
+                                    className="w-full rounded-lg border border-slate-600 bg-slate-800/50 px-4 py-2 text-slate-50 placeholder-slate-500 transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                                >
+                                    <option value="">
+                                        All Specializations
+                                    </option>
+                                    {specializations.map((spec) => (
+                                        <option key={spec} value={spec}>
+                                            {spec}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
                         {isLoading ? (
                             <div className="space-y-3">
                                 {Array(3)
@@ -254,6 +319,17 @@ export default function BookAppointmentPage() {
                                             {doctor.specialization ||
                                                 "General Practitioner"}
                                         </div>
+                                        {doctor.experience && (
+                                            <div className="text-xs opacity-60 mt-1">
+                                                {doctor.experience} years of
+                                                experience
+                                            </div>
+                                        )}
+                                        {doctor.city && (
+                                            <div className="text-xs opacity-60">
+                                                📍 {doctor.city}
+                                            </div>
+                                        )}
                                     </button>
                                 ))}
                             </div>

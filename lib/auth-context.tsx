@@ -1,8 +1,8 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { removeToken } from "@/lib/api/auth";
+import { removeToken, getToken, getUserRole, getUserId } from "@/lib/api/auth";
 
 type UserRole = "admin" | "doctor" | "patient";
 
@@ -27,7 +27,34 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const [user, setUser] = useState<User | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+
+    // Restore user from cookies on mount
+    useEffect(() => {
+        const restoreUser = () => {
+            try {
+                const token = getToken();
+                const role = getUserRole();
+                const userId = getUserId();
+
+                if (token && role && userId) {
+                    // Reconstruct user from stored data
+                    setUser({
+                        id: userId,
+                        email: userId, // Use userId as placeholder, you might want to store email too
+                        name: role.charAt(0).toUpperCase() + role.slice(1),
+                        role: role as UserRole,
+                    });
+                }
+            } catch (error) {
+                console.error("Error restoring user:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        restoreUser();
+    }, []);
 
     const logout = useCallback(() => {
         removeToken();

@@ -2,7 +2,8 @@ import axios, { AxiosInstance } from "axios";
 import { getToken, removeToken } from "./auth";
 
 const API_BASE_URL =
-    process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+    // process.env.NEXT_PUBLIC_API_URL ||
+    "http://localhost:5000/api";
 
 const client: AxiosInstance = axios.create({
     baseURL: API_BASE_URL,
@@ -10,6 +11,9 @@ const client: AxiosInstance = axios.create({
         "Content-Type": "application/json",
     },
 });
+
+console.log('API_BASE_URL------------------------>:', API_BASE_URL);
+
 
 // Add token to requests
 client.interceptors.request.use(

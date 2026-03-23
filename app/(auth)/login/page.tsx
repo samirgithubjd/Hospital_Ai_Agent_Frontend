@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Lock, Mail, Eye, EyeOff, User } from "lucide-react";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
@@ -59,6 +58,11 @@ export default function LoginPage() {
     const handleSignIn = async (e: React.FormEvent) => {
         e.preventDefault();
 
+        if (!email || !password) {
+            toast.error("Please enter email and password");
+            return;
+        }
+
         setIsLoading(true);
 
         try {
@@ -69,6 +73,16 @@ export default function LoginPage() {
             });
 
             console.log("Login response:", response);
+            
+            // Validate that the returned role matches the selected role
+            if (response.user.role !== role) {
+                setIsLoading(false);
+                toast.error(
+                    `Invalid credentials for ${role}. This account is for a ${response.user.role}.`
+                );
+                return;
+            }
+
             console.log("Setting user:", response.user);
 
             // Set user first

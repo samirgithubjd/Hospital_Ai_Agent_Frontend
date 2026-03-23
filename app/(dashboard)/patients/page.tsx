@@ -108,20 +108,22 @@ export default function PatientsPage() {
                                 </div>
 
                                 {/* Symptoms */}
-                                <div>
-                                    <p className="text-xs font-semibold text-slate-400 mb-2 uppercase">
-                                        Symptoms
-                                    </p>
-                                    <div className="flex gap-2 flex-wrap">
-                                        {patient.symptoms.map(
-                                            (symptom, idx) => (
-                                                <Badge key={idx} variant="info">
-                                                    {symptom}
-                                                </Badge>
-                                            ),
-                                        )}
+                                {patient.symptoms && patient.symptoms.length > 0 && (
+                                    <div>
+                                        <p className="text-xs font-semibold text-slate-400 mb-2 uppercase">
+                                            Symptoms
+                                        </p>
+                                        <div className="flex gap-2 flex-wrap">
+                                            {patient.symptoms.map(
+                                                (symptom, idx) => (
+                                                    <Badge key={idx} variant="info">
+                                                        {symptom}
+                                                    </Badge>
+                                                ),
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
+                                )}
 
                                 {/* Last Call */}
                                 {patient.lastCallDate && (

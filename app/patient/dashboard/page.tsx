@@ -12,9 +12,14 @@ import {
     Clock,
     Plus,
     AlertCircle,
+    Phone,
+    PhoneOff,
+    Users,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { getPatientAppointments, getPatientStats, Appointment } from "@/lib/api/appointments";
+import { getAgentDetails, Agent } from "@/lib/api/agents";
+import { getActiveDoctors, Doctor } from "@/lib/api/doctors";
 import { useAuth } from "@/lib/auth-context";
 
 interface Stats {
@@ -28,6 +33,8 @@ export default function PatientDashboard() {
     const { user } = useAuth();
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [stats, setStats] = useState<Stats | null>(null);
+    const [agent, setAgent] = useState<Agent | null>(null);
+    const [doctors, setDoctors] = useState<Doctor[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -37,12 +44,16 @@ export default function PatientDashboard() {
     const loadData = async () => {
         try {
             setIsLoading(true);
-            const [appts, dashboardStats] = await Promise.all([
+            const [appts, dashboardStats, agentData, doctorsData] = await Promise.all([
                 getPatientAppointments(),
                 getPatientStats(),
+                getAgentDetails().catch(() => null), // Don't fail if agent data is not available
+                getActiveDoctors().catch(() => []), // Don't fail if doctors data is not available
             ]);
             setAppointments(appts);
             setStats(dashboardStats);
+            setAgent(agentData);
+            setDoctors(doctorsData);
         } catch (error: any) {
             console.error("Error loading patient dashboard:", error);
             toast.error(
@@ -66,6 +77,12 @@ export default function PatientDashboard() {
             case "pending":
             default:
                 return "bg-yellow-500/20 text-yellow-300 border-yellow-500/30";
+        }
+    };
+
+    const handleCallAgent = () => {
+        if (agent?.mobileNumber) {
+            window.location.href = `tel:${agent.mobileNumber}`;
         }
     };
 
@@ -95,6 +112,33 @@ export default function PatientDashboard() {
                     Manage and book your medical appointments
                 </p>
             </div>
+
+            {/* Agent Contact Card */}
+            {agent && (
+                <Card className="p-6 bg-gradient-to-r from-blue-600/20 to-purple-600/20 border-blue-500/30 hover:border-blue-500/50 transition-all">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h3 className="text-lg font-semibold text-slate-50 flex items-center gap-2">
+                                <Phone className="w-5 h-5 text-blue-400" />
+                                Need Help? Contact Our Agent
+                            </h3>
+                            <p className="text-slate-400 mt-2">
+                                Agent Name: <span className="text-slate-200 font-medium">{agent.name}</span>
+                            </p>
+                            <p className="text-slate-300 text-lg font-semibold mt-1">
+                                📱 {agent.mobileNumber}
+                            </p>
+                        </div>
+                        <button
+                            onClick={handleCallAgent}
+                            className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
+                        >
+                            <Phone className="w-5 h-5" />
+                            Call Now
+                        </button>
+                    </div>
+                </Card>
+            )}
 
             {/* Action Buttons */}
             <div className="flex gap-3">
@@ -151,6 +195,82 @@ export default function PatientDashboard() {
                         </div>
                     </Card>
                 </div>
+            )}
+
+            {/* Available Doctors Section */}
+            {doctors.length > 0 && (
+                <Card className="bg-slate-800/50 border-slate-700">
+                    <div className="p-6 border-b border-slate-700">
+                        <h2 className="text-xl font-bold text-slate-50 flex items-center gap-2">
+                            <Users className="w-5 h-5" />
+                            Available Doctors
+                        </h2>
+                        <p className="text-slate-400 text-sm mt-1">
+                            Browse and book appointments with our available doctors
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
+                        {doctors.slice(0, 6).map((doctor) => (
+                            <div
+                                key={doctor.id}
+                                className="p-4 rounded-lg bg-slate-700/30 border border-slate-600 hover:border-blue-500/30 hover:bg-slate-700/50 transition-all group"
+                            >
+                                <div className="space-y-3">
+                                    <div>
+                                        <h3 className="font-semibold text-slate-50 group-hover:text-blue-300 transition-colors">
+                                            Dr. {doctor.name}
+                                        </h3>
+                                        <p className="text-sm text-slate-400 mt-1">
+                                            {doctor.specialization ||
+                                                "General Practitioner"}
+                                        </p>
+                                    </div>
+
+                                    {(doctor.experience ||
+                                        doctor.city ||
+                                        doctor.phone) && (
+                                        <div className="space-y-1 text-xs text-slate-400">
+                                            {doctor.experience && (
+                                                <p>
+                                                    📅{" "}
+                                                    {doctor.experience} years
+                                                    experience
+                                                </p>
+                                            )}
+                                            {doctor.city && (
+                                                <p>📍 {doctor.city}</p>
+                                            )}
+                                            {doctor.phone && (
+                                                <p>📞 {doctor.phone}</p>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    <Link
+                                        href="/patient/book-appointment"
+                                        className="block"
+                                    >
+                                        <Button
+                                            size="sm"
+                                            className="w-full mt-2"
+                                        >
+                                            Book Appointment
+                                        </Button>
+                                    </Link>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="px-6 pb-6 text-center border-t border-slate-700 pt-4">
+                        <Link href="/patient/book-appointment">
+                            <Button variant="ghost">
+                                View All Doctors →
+                            </Button>
+                        </Link>
+                    </div>
+                </Card>
             )}
 
             {/* Appointments List */}

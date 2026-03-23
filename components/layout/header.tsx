@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell, Search, User, ChevronDown, LogOut } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -23,13 +24,43 @@ export function Header() {
             "/appointments": "Appointments",
             "/ai-settings": "AI Settings",
             "/settings": "Settings",
+            "/profile": "My Profile",
+            "/notifications": "Notifications",
             "/doctor/dashboard": "Doctor Dashboard",
             "/doctor/appointments": "My Appointments",
+            "/doctor/profile": "My Profile",
+            "/doctor/notifications": "Notifications",
             "/patient/dashboard": "My Dashboard",
             "/patient/appointments": "My Appointments",
             "/patient/book-appointment": "Book Appointment",
+            "/patient/profile": "My Profile",
+            "/patient/notifications": "Notifications",
         };
         return titles[pathname] || "Dashboard";
+    };
+
+    const getNotificationLink = () => {
+        switch (userRole) {
+            case "doctor":
+                return "/doctor/notifications";
+            case "patient":
+                return "/patient/notifications";
+            case "admin":
+            default:
+                return "/notifications";
+        }
+    };
+
+    const getProfileLink = () => {
+        switch (userRole) {
+            case "doctor":
+                return "/doctor/profile";
+            case "patient":
+                return "/patient/profile";
+            case "admin":
+            default:
+                return "/profile";
+        }
     };
 
     return (
@@ -51,10 +82,13 @@ export function Header() {
                 {/* Right Actions */}
                 <div className="flex items-center gap-4 ml-auto">
                     {/* Notifications */}
-                    <button className="relative p-2 hover:bg-slate-800 rounded-lg transition-colors">
+                    <Link
+                        href={getNotificationLink()}
+                        className="relative p-2 hover:bg-slate-800 rounded-lg transition-colors"
+                    >
                         <Bell className="w-5 h-5 text-slate-400" />
                         <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
-                    </button>
+                    </Link>
 
                     {/* User Profile */}
                     <div className="relative">
@@ -79,12 +113,20 @@ export function Header() {
                         {/* User Menu */}
                         {showUserMenu && (
                             <div className="absolute right-0 mt-2 w-48 rounded-lg bg-slate-800 border border-slate-700 shadow-lg">
+                                <Link
+                                    href={getProfileLink()}
+                                    className="w-full flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-slate-700/50 transition-colors rounded-lg first:rounded-t-lg"
+                                    onClick={() => setShowUserMenu(false)}
+                                >
+                                    <User className="w-4 h-4" />
+                                    <span>My Profile</span>
+                                </Link>
                                 <button
                                     onClick={() => {
                                         logout();
                                         setShowUserMenu(false);
                                     }}
-                                    className="w-full flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-slate-700/50 transition-colors rounded-lg first:rounded-t-lg last:rounded-b-lg"
+                                    className="w-full flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-slate-700/50 transition-colors rounded-lg last:rounded-b-lg"
                                 >
                                     <LogOut className="w-4 h-4" />
                                     <span>Logout</span>

@@ -92,7 +92,16 @@ export async function bookAppointment(appointmentData: {
     reason?: string;
     symptoms?: string[];
 }): Promise<Appointment> {
-    const response = await client.post<any>("/appointments/patient/book", appointmentData);
+    // Map frontend field names to backend expected field names
+    const payload = {
+        doctorId: appointmentData.doctorId,
+        appointmentDate: appointmentData.date,  // Backend expects appointmentDate
+        time: appointmentData.time,             // Backend expects time
+        reason: appointmentData.reason,
+        symptoms: appointmentData.symptoms,
+    };
+    
+    const response = await client.post<any>("/appointments/patient/book", payload);
     const data = response.data.data || response.data;
     return data;
 }
