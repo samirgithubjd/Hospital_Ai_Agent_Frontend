@@ -71,6 +71,7 @@ function StatCard({
 
 export default function DashboardPage() {
     const [callsData, setCallsData] = useState<Call[]>([]);
+    const [appointmentsData, setAppointmentsData] = useState<any[]>([]);
     const [stats, setStats] = useState({
         total: 0,
         completed: 0,
@@ -89,6 +90,7 @@ export default function DashboardPage() {
                 );
 
                 setCallsData(callsResponse.calls);
+                setAppointmentsData(appointmentsResponse.appointments || []);
                 setStats({
                     total: callsResponse.total,
                     completed: callsResponse.completed,
@@ -107,28 +109,56 @@ export default function DashboardPage() {
         fetchData();
     }, []);
 
-    // Generate deterministic chart data (not random) to avoid hydration mismatch
+    // Transform real calls data into hourly buckets
     const chartData = useMemo(() => {
+        // Initialize 24-hour chart with zeros
         const callChartData = Array.from({ length: 24 }, (_, i) => ({
             time: `${String(i).padStart(2, "0")}:00`,
-            calls: (i * 3) % 10, // Deterministic instead of random
+            calls: 0,
         }));
 
-        const appointmentChartData = [
-            "Mon",
-            "Tue",
-            "Wed",
-            "Thu",
-            "Fri",
-            "Sat",
-            "Sun",
-        ].map((day, i) => ({
-            date: day,
-            appointments: (i * 5) % 20, // Deterministic instead of random
-        }));
+        // Count calls by hour
+        callsData.forEach((call) => {
+            try {
+                const callHour = new Date(call.callTime).getHours();
+                callChartData[callHour].calls += 1;
+            } catch (e) {
+                // Invalid date, skip
+            }
+        });
+
+        // Initialize 7-day chart with zeros
+        const today = new Date();
+        const appointmentChartData = Array.from({ length: 7 }, (_, i) => {
+            const date = new Date(today);
+            date.setDate(date.getDate() - (6 - i));
+            return {
+                date: date.toLocaleDateString("en-US", { weekday: "short" }),
+                fullDate: date.toISOString().split("T")[0],
+                appointments: 0,
+            };
+        });
+
+        // Count appointments by day
+        appointmentsData.forEach((appointment) => {
+            try {
+                const appointmentDate = appointment.date
+                    ? new Date(appointment.date).toISOString().split("T")[0]
+                    : appointment.appointmentDate?.split("T")[0];
+
+                const dayIndex = appointmentChartData.findIndex(
+                    (d) => d.fullDate === appointmentDate,
+                );
+                if (dayIndex !== -1) {
+                    appointmentChartData[dayIndex].appointments += 1;
+                }
+            } catch (e) {
+                // Invalid date, skip
+            }
+        });
 
         return { callChartData, appointmentChartData };
-    }, []);
+    }, [callsData, appointmentsData]);
 
     return (
         <div className="p-6 space-y-8">
@@ -180,33 +210,49 @@ export default function DashboardPage() {
                 <Card>
                     <CardHeader>
                         <CardTitle>Calls Today</CardTitle>
-                        <CardDescription>Hourly call volume</CardDescription>
+                        <CardDescription>
+                            Hourly call volume (Real-time data)
+                        </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <ResponsiveContainer width="100%" height={300}>
-                            <LineChart data={chartData.callChartData}>
-                                <CartesianGrid
-                                    strokeDasharray="3 3"
-                                    stroke="#334155"
-                                />
-                                <XAxis dataKey="time" stroke="#94a3b8" />
-                                <YAxis stroke="#94a3b8" />
-                                <Tooltip
-                                    contentStyle={{
-                                        backgroundColor: "#1e293b",
-                                        border: "1px solid #475569",
-                                        borderRadius: "8px",
-                                    }}
-                                />
-                                <Line
-                                    type="monotone"
-                                    dataKey="calls"
-                                    stroke="#0ea5e9"
-                                    strokeWidth={2}
-                                    dot={{ fill: "#0ea5e9", r: 4 }}
-                                />
-                            </LineChart>
-                        </ResponsiveContainer>
+                        {isLoading ? (
+                            <Skeleton className="h-80 w-full" />
+                        ) : (
+                            <ResponsiveContainer width="100%" height={300}>
+                                <LineChart data={chartData.callChartData}>
+                                    <CartesianGrid
+                                        strokeDasharray="3 3"
+                                        stroke="#334155"
+                                    />
+                                    <XAxis
+                                        dataKey="time"
+                                        stroke="#94a3b8"
+                                        tick={{ fontSize: 12 }}
+                                    />
+                                    <YAxis stroke="#94a3b8" />
+                                    <Tooltip
+                                        contentStyle={{
+                                            backgroundColor: "#1e293b",
+                                            border: "1px solid #475569",
+                                            borderRadius: "8px",
+                                        }}
+                                        labelStyle={{ color: "#94a3b8" }}
+                                        formatter={(value) => [
+                                            `${value} calls`,
+                                            "Calls",
+                                        ]}
+                                    />
+                                    <Line
+                                        type="monotone"
+                                        dataKey="calls"
+                                        stroke="#0ea5e9"
+                                        strokeWidth={2}
+                                        dot={{ fill: "#0ea5e9", r: 4 }}
+                                        activeDot={{ r: 6 }}
+                                    />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        )}
                     </CardContent>
                 </Card>
 
@@ -215,32 +261,45 @@ export default function DashboardPage() {
                     <CardHeader>
                         <CardTitle>Appointments This Week</CardTitle>
                         <CardDescription>
-                            Daily appointment bookings
+                            Daily appointment bookings (Real-time data)
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <ResponsiveContainer width="100%" height={300}>
-                            <BarChart data={chartData.appointmentChartData}>
-                                <CartesianGrid
-                                    strokeDasharray="3 3"
-                                    stroke="#334155"
-                                />
-                                <XAxis dataKey="date" stroke="#94a3b8" />
-                                <YAxis stroke="#94a3b8" />
-                                <Tooltip
-                                    contentStyle={{
-                                        backgroundColor: "#1e293b",
-                                        border: "1px solid #475569",
-                                        borderRadius: "8px",
-                                    }}
-                                />
-                                <Bar
-                                    dataKey="appointments"
-                                    fill="#0ea5e9"
-                                    radius={[8, 8, 0, 0]}
-                                />
-                            </BarChart>
-                        </ResponsiveContainer>
+                        {isLoading ? (
+                            <Skeleton className="h-80 w-full" />
+                        ) : (
+                            <ResponsiveContainer width="100%" height={300}>
+                                <BarChart data={chartData.appointmentChartData}>
+                                    <CartesianGrid
+                                        strokeDasharray="3 3"
+                                        stroke="#334155"
+                                    />
+                                    <XAxis
+                                        dataKey="date"
+                                        stroke="#94a3b8"
+                                        tick={{ fontSize: 12 }}
+                                    />
+                                    <YAxis stroke="#94a3b8" />
+                                    <Tooltip
+                                        contentStyle={{
+                                            backgroundColor: "#1e293b",
+                                            border: "1px solid #475569",
+                                            borderRadius: "8px",
+                                        }}
+                                        labelStyle={{ color: "#94a3b8" }}
+                                        formatter={(value) => [
+                                            `${value} appointments`,
+                                            "Appointments",
+                                        ]}
+                                    />
+                                    <Bar
+                                        dataKey="appointments"
+                                        fill="#0ea5e9"
+                                        radius={[8, 8, 0, 0]}
+                                    />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        )}
                     </CardContent>
                 </Card>
             </div>

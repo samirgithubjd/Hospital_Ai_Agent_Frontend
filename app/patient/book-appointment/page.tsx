@@ -170,10 +170,11 @@ export default function BookAppointmentPage() {
         try {
             await bookAppointment({
                 doctorId: selectedDoctor,
-                date: selectedDate,
-                time: selectedTime,
-                reason,
-                symptoms: symptoms ? symptoms.split(",").map((s) => s.trim()) : [],
+                appointmentDate: selectedDate,
+                appointmentTime: selectedTime,
+                symptoms: symptoms || "",
+                duration: 30,
+                isEmergency: false,
             });
 
             toast.success("Appointment booked successfully!");

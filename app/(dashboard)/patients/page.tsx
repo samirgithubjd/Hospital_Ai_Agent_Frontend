@@ -137,7 +137,7 @@ export default function PatientsPage() {
 
                                 {/* Actions */}
                                 <div className="flex gap-2 pt-4">
-                                    <Link
+                                    {/* <Link
                                         href={`/patients/${patient.id}`}
                                         className="flex-1"
                                     >
@@ -148,7 +148,7 @@ export default function PatientsPage() {
                                         >
                                             View Details
                                         </Button>
-                                    </Link>
+                                    </Link> */}
                                     <Button
                                         variant="outline"
                                         size="sm"

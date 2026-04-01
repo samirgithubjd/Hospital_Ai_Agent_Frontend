@@ -12,11 +12,10 @@ import {
     Clock,
     Plus,
     AlertCircle,
-    Phone,
-    PhoneOff,
     Users,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { CallNowModal } from "@/components/call-now-modal";
 import { getPatientAppointments, getPatientStats, Appointment } from "@/lib/api/appointments";
 import { getAgentDetails, Agent } from "@/lib/api/agents";
 import { getActiveDoctors, Doctor } from "@/lib/api/doctors";
@@ -54,10 +53,17 @@ export default function PatientDashboard() {
             setStats(dashboardStats);
             setAgent(agentData);
             setDoctors(doctorsData);
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error("Error loading patient dashboard:", error);
+            const knownError = error as {
+                response?: {
+                    data?: {
+                        message?: string;
+                    };
+                };
+            };
             toast.error(
-                error.response?.data?.message ||
+                knownError.response?.data?.message ||
                     "Failed to load appointments"
             );
         } finally {
@@ -80,11 +86,7 @@ export default function PatientDashboard() {
         }
     };
 
-    const handleCallAgent = () => {
-        if (agent?.mobileNumber) {
-            window.location.href = `tel:${agent.mobileNumber}`;
-        }
-    };
+
 
     if (isLoading) {
         return (
@@ -114,40 +116,56 @@ export default function PatientDashboard() {
             </div>
 
             {/* Agent Contact Card */}
-            {agent && (
+            {/* {agent && user?.id && (
                 <Card className="p-6 bg-gradient-to-r from-blue-600/20 to-purple-600/20 border-blue-500/30 hover:border-blue-500/50 transition-all">
                     <div className="flex items-center justify-between">
                         <div>
                             <h3 className="text-lg font-semibold text-slate-50 flex items-center gap-2">
                                 <Phone className="w-5 h-5 text-blue-400" />
-                                Need Help? Contact Our Agent
+                                Need Help? Contact Our AI Agent
                             </h3>
                             <p className="text-slate-400 mt-2">
                                 Agent Name: <span className="text-slate-200 font-medium">{agent.name}</span>
                             </p>
-                            <p className="text-slate-300 text-lg font-semibold mt-1">
+                            <p className="text-slate-300 text-sm mt-1">
                                 📱 {agent.mobileNumber}
                             </p>
+                            <p className="text-slate-400 text-xs mt-2">
+                                Click to connect via web call - AI agent will help book your appointment
+                            </p>
                         </div>
-                        <button
-                            onClick={handleCallAgent}
-                            className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
-                        >
-                            <Phone className="w-5 h-5" />
-                            Call Now
-                        </button>
+                        <WebCallModal
+                            patientId={user.id}
+                            agentName={agent.name}
+                            onCallEnd={(booked) => {
+                                if (booked) {
+                                    loadData();
+                                }
+                            }}
+                        />
                     </div>
                 </Card>
-            )}
+            )} */}
 
             {/* Action Buttons */}
-            <div className="flex gap-3">
+            <div className="flex gap-3 flex-wrap">
                 <Link href="/patient/book-appointment" className="block">
                     <Button className="flex items-center gap-2">
                         <Plus className="w-4 h-4" />
                         Book New Appointment
                     </Button>
                 </Link>
+                {agent && user?.id && (
+                    <CallNowModal
+                        patientId={user.id}
+                        hospitalName="Hospital AI Agent"
+                        agentPhoneNumber={agent.mobileNumber}
+                        agentName={agent.name}
+                        onCallRecorded={() => {
+                            loadData();
+                        }}
+                    />
+                )}
             </div>
 
             {/* Stats Grid */}

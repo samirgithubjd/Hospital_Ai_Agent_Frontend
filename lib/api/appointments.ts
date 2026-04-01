@@ -9,10 +9,99 @@ export interface Appointment {
     appointmentTime: string;
     date?: string;
     time?: string;
-    status: "pending" | "confirmed" | "cancelled" | "completed" | "booked";
+    status: "pending" | "confirmed" | "cancelled" | "completed" | "booked" | "scheduled";
     reason: string;
-    symptoms?: string[];
+    symptoms?: string | string[];
     diagnosis?: string;
+    duration?: number;
+    isEmergency?: boolean;
+}
+
+export interface RawAppointment {
+    _id?: string;
+    id?: string;
+    patientId: {
+        _id?: string;
+        id?: string;
+        firstName?: string;
+        lastName?: string;
+        name?: string;
+        email?: string;
+    } | string;
+    doctorId: {
+        _id: string;
+        firstName: string;
+        lastName: string;
+        specialization?: string;
+        department?: string;
+        email?: string;
+    } | string;
+    appointmentDate: string;
+    appointmentTime: string;
+    duration?: number;
+    symptoms?: string;
+    reason?: string;
+    status: string;
+    createdAt?: string;
+    updatedAt?: string;
+}
+
+// Transform raw appointment from backend to frontend format
+function transformAppointment(rawAppointment: RawAppointment): Appointment {
+    const appointmentId = rawAppointment.id || rawAppointment._id || "";
+    
+    // Extract patient details
+    let patientName = "Unknown";
+    let patientIdString = "";
+    
+    if (typeof rawAppointment.patientId === "object") {
+        patientName = rawAppointment.patientId.name ||
+            `${rawAppointment.patientId.firstName || ""} ${rawAppointment.patientId.lastName || ""}`.trim();
+        patientIdString = rawAppointment.patientId.id || rawAppointment.patientId._id || "";
+    } else {
+        patientIdString = rawAppointment.patientId || "";
+    }
+    
+    // Extract doctor details
+    let doctorName = "Unknown";
+    let doctorIdString = "";
+    
+    if (typeof rawAppointment.doctorId === "object") {
+        doctorName = `${rawAppointment.doctorId.firstName || ""} ${rawAppointment.doctorId.lastName || ""}`.trim();
+        doctorIdString = rawAppointment.doctorId._id || "";
+    } else {
+        doctorIdString = rawAppointment.doctorId || "";
+    }
+    
+    // Format date - convert ISO date to readable format
+    let formattedDate = "";
+    try {
+        const dateObj = new Date(rawAppointment.appointmentDate);
+        formattedDate = dateObj.toLocaleDateString("en-US", {
+            weekday: "short",
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+        });
+    } catch {
+        formattedDate = rawAppointment.appointmentDate;
+    }
+    
+    return {
+        id: appointmentId,
+        patientId: patientIdString,
+        patientName: patientName,
+        doctorId: doctorIdString,
+        doctorName: doctorName,
+        appointmentTime: rawAppointment.appointmentTime,
+        date: formattedDate,
+        time: rawAppointment.appointmentTime,
+        status: (rawAppointment.status as any) || "scheduled",
+        reason: rawAppointment.reason || "N/A",
+        symptoms: rawAppointment.symptoms || "",
+        duration: rawAppointment.duration || 30,
+        isEmergency: (rawAppointment as any).isEmergency || false,
+    };
 }
 
 export interface AppointmentsResponse {
@@ -45,7 +134,7 @@ export async function getAppointmentById(id: string): Promise<Appointment> {
     const response = await client.get<any>(`/appointments/${id}`);
     // Handle both direct response and wrapped response
     const data = response.data.data || response.data;
-    return data;
+    return transformAppointment(data);
 }
 
 export async function createAppointment(
@@ -54,7 +143,7 @@ export async function createAppointment(
     const response = await client.post<any>("/appointments", data);
     // Handle both direct response and wrapped response
     const responseData = response.data.data || response.data;
-    return responseData;
+    return transformAppointment(responseData);
 }
 
 export async function updateAppointment(
@@ -64,14 +153,17 @@ export async function updateAppointment(
     const response = await client.put<any>(`/appointments/${id}`, data);
     // Handle both direct response and wrapped response
     const responseData = response.data.data || response.data;
-    return responseData;
+    return transformAppointment(responseData);
 }
 
 // Patient-specific appointments
 export async function getPatientAppointments(): Promise<Appointment[]> {
     const response = await client.get<any>("/appointments/patient/my-appointments");
     const data = response.data.data || response.data;
-    return Array.isArray(data) ? data : [];
+    const appointments = Array.isArray(data) ? data : [];
+    
+    // Transform all appointments from backend format to frontend format
+    return appointments.map((apt) => transformAppointment(apt));
 }
 
 export async function getPatientStats(): Promise<DashboardStats> {
@@ -87,18 +179,24 @@ export async function getPatientStats(): Promise<DashboardStats> {
 
 export async function bookAppointment(appointmentData: {
     doctorId: string;
-    date: string;
-    time: string;
-    reason?: string;
-    symptoms?: string[];
+    appointmentDate: string;
+    appointmentTime: string;
+    symptoms?: string | string[];
+    duration?: number;
+    isEmergency?: boolean;
 }): Promise<Appointment> {
-    // Map frontend field names to backend expected field names
+    // Convert symptoms array to string if needed
+    const symptomString = Array.isArray(appointmentData.symptoms)
+        ? appointmentData.symptoms.join(", ")
+        : appointmentData.symptoms;
+    
     const payload = {
         doctorId: appointmentData.doctorId,
-        appointmentDate: appointmentData.date,  // Backend expects appointmentDate
-        time: appointmentData.time,             // Backend expects time
-        reason: appointmentData.reason,
-        symptoms: appointmentData.symptoms,
+        appointmentDate: appointmentData.appointmentDate,
+        appointmentTime: appointmentData.appointmentTime,
+        symptoms: symptomString,
+        duration: appointmentData.duration || 30,
+        isEmergency: appointmentData.isEmergency || false,
     };
     
     const response = await client.post<any>("/appointments/patient/book", payload);
@@ -129,7 +227,10 @@ export async function rescheduleAppointment(
 export async function getDoctorAppointments(): Promise<Appointment[]> {
     const response = await client.get<any>("/appointments/doctor/my-appointments");
     const data = response.data.data || response.data;
-    return Array.isArray(data) ? data : [];
+    const appointments = Array.isArray(data) ? data : [];
+    
+    // Transform all appointments from backend format to frontend format
+    return appointments.map((apt) => transformAppointment(apt));
 }
 
 export async function getDoctorStats(): Promise<DashboardStats> {

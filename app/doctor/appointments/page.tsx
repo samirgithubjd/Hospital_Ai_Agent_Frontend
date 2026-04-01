@@ -126,8 +126,7 @@ export default function DoctorAppointments() {
                                             {appointment.reason || "N/A"}
                                         </td>
                                         <td className="px-6 py-4 text-sm text-slate-400">
-                                            {appointment.symptoms?.join(", ") ||
-                                                "N/A"}
+                                            {appointment.symptoms || "N/A"}
                                         </td>
                                         <td className="px-6 py-4 text-sm">
                                             <Badge

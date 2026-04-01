@@ -37,7 +37,7 @@ export default function LoginPage() {
     // Sign in form
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [role, setRole] = useState<UserRole>("admin");
+    const [role, setRole] = useState<UserRole>("admin");  0
 
     // Sign up form
     // const [userName, setUserName] = useState("mehul");

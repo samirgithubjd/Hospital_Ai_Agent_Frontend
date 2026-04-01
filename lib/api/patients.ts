@@ -14,7 +14,21 @@ export async function getPatients(): Promise<Patient[]> {
     const response = await client.get<any>("/patients");
     // Handle both direct response and wrapped response
     const data = response.data.data || response.data;
-    return Array.isArray(data) ? data : [];
+    
+    if (!Array.isArray(data)) {
+        return [];
+    }
+    
+    // Map API response to Patient interface
+    return data.map((patient: any) => ({
+        id: patient._id || patient.id,
+        name: `${patient.firstName || ""} ${patient.lastName || ""}`.trim(),
+        age: patient.age || 0,
+        phoneNumber: patient.phone || "",
+        symptoms: patient.symptoms || [],
+        isEmergency: patient.isEmergency || false,
+        lastCallDate: patient.lastCallDate || patient.updatedAt,
+    }));
 }
 
 export async function getPatientById(id: string): Promise<Patient> {
