@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs } from "@/components/ui/tabs";
+// import { Tabs } from "@/components/ui/tabs";
 import { ChevronDown, Plus, Check, X, Trash2, Eye, EyeOff, User, Mail, Lock } from "lucide-react";
 import {
     createDoctor,

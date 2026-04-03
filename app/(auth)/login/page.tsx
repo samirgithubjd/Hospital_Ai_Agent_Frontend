@@ -7,11 +7,11 @@ import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/input";
-import { login, signUpPatient, checkHealth } from "@/lib/api/endpoints";
+import { login, signUpPatient, checkHealth, verifyEmail, resendVerificationEmail } from "@/lib/api/endpoints";
 import { useAuth } from "@/lib/auth-context";
 
 type UserRole = "admin" | "doctor" | "patient";
-type AuthMode = "signin" | "signup";
+type AuthMode = "signin" | "signup" | "verify";
 
 //admin login:
     //admin@hospital.com
@@ -36,8 +36,9 @@ export default function LoginPage() {
 
     // Sign in form
     const [email, setEmail] = useState("");
+    const [emailOrPhone, setEmailOrPhone] = useState(""); // For flexible login
     const [password, setPassword] = useState("");
-    const [role, setRole] = useState<UserRole>("admin");  0
+    const [role, setRole] = useState<UserRole>("admin");
 
     // Sign up form
     // const [userName, setUserName] = useState("mehul");
@@ -47,6 +48,13 @@ export default function LoginPage() {
     const [firstName, setFirstName] = useState("");
     const [lastName, setLastName] = useState("");
     const [phone, setPhone] = useState("");
+    const [age, setAge] = useState("");
+    const [medicalHistory, setMedicalHistory] = useState("");
+
+    // Email verification
+    const [verificationCode, setVerificationCode] = useState("");
+    const [verifyingEmail, setVerifyingEmail] = useState("");
+    const [canResendEmail, setCanResendEmail] = useState(false);
 
     React.useEffect(() => {
         // Check API health on mount
@@ -58,16 +66,20 @@ export default function LoginPage() {
     const handleSignIn = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!email || !password) {
-            toast.error("Please enter email and password");
+        if (!emailOrPhone || !password) {
+            toast.error("Please enter email/phone and password");
             return;
         }
 
         setIsLoading(true);
 
         try {
+            // Determine if input is email or phone
+            const isEmail = emailOrPhone.includes("@");
+            
             const response = await login({
-                email,
+                email: isEmail ? emailOrPhone : undefined,
+                phone: !isEmail ? emailOrPhone : undefined,
                 password,
                 role,
             });
@@ -140,19 +152,22 @@ export default function LoginPage() {
                 firstName,
                 lastName,
                 phone,
+                age: age ? parseInt(age) : undefined,
+                medicalHistory,
             });
 
             console.log("Sign up response:", response);
-            console.log("Setting user:", response.user);
 
-            // Set user first
-            setUser(response.user);
-
+            // Store email for verification
+            setVerifyingEmail(signUpEmail);
+            
             // Show success message
-            toast.success("Sign up successful! Redirecting...");
+            toast.success("Sign up successful! Please verify your email.");
 
-            // Redirect to patient dashboard
-            router.replace("/patient/dashboard");
+            // Move to verification step
+            setAuthMode("verify");
+            setVerificationCode(""); // Reset verification code
+            setCanResendEmail(false);
         } catch (error: any) {
             setIsLoading(false);
             const message =
@@ -160,6 +175,66 @@ export default function LoginPage() {
                 "Sign up failed. Please try again.";
             console.error("Sign up error:", error);
             toast.error(message);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleVerifyEmail = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        if (!verificationCode) {
+            toast.error("Please enter verification code");
+            return;
+        }
+
+        setIsLoading(true);
+
+        try {
+            const response = await verifyEmail(verificationCode);
+
+            console.log("Email verification response:", response);
+
+            // Set user
+            setUser(response.user);
+
+            toast.success("Email verified! Redirecting to dashboard...");
+
+            // Redirect to patient dashboard
+            router.replace("/patient/dashboard");
+        } catch (error: any) {
+            setIsLoading(false);
+            const message =
+                error.response?.data?.message ||
+                "Email verification failed. Please try again.";
+            console.error("Verification error:", error);
+            toast.error(message);
+        }
+    };
+
+    const handleResendEmail = async () => {
+        if (!verifyingEmail) {
+            toast.error("Email not found");
+            return;
+        }
+
+        setIsLoading(true);
+
+        try {
+            const response = await resendVerificationEmail(verifyingEmail);
+            toast.success(response.message || "Verification email sent!");
+            setCanResendEmail(false);
+            
+            // Disable resend button for 60 seconds
+            setTimeout(() => setCanResendEmail(true), 60000);
+        } catch (error: any) {
+            const message =
+                error.response?.data?.message ||
+                "Failed to resend verification email";
+            console.error("Resend error:", error);
+            toast.error(message);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -217,30 +292,32 @@ export default function LoginPage() {
                     </div>
 
                     {/* Auth Mode Tabs */}
-                    <div className="mb-6 flex gap-2 bg-slate-700/30 p-1 rounded-lg border border-slate-700">
-                        <button
-                            type="button"
-                            onClick={() => setAuthMode("signin")}
-                            className={`flex-1 py-2 px-4 rounded-md transition-all font-medium text-sm ${
-                                authMode === "signin"
-                                    ? "bg-blue-600 text-white"
-                                    : "text-slate-400 hover:text-slate-300"
-                            }`}
-                        >
-                            Sign In
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setAuthMode("signup")}
-                            className={`flex-1 py-2 px-4 rounded-md transition-all font-medium text-sm ${
-                                authMode === "signup"
-                                    ? "bg-blue-600 text-white"
-                                    : "text-slate-400 hover:text-slate-300"
-                            }`}
-                        >
-                            Sign Up
-                        </button>
-                    </div>
+                    {authMode !== "verify" && (
+                        <div className="mb-6 flex gap-2 bg-slate-700/30 p-1 rounded-lg border border-slate-700">
+                            <button
+                                type="button"
+                                onClick={() => setAuthMode("signin")}
+                                className={`flex-1 py-2 px-4 rounded-md transition-all font-medium text-sm ${
+                                    authMode === "signin"
+                                        ? "bg-blue-600 text-white"
+                                        : "text-slate-400 hover:text-slate-300"
+                                }`}
+                            >
+                                Sign In
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setAuthMode("signup")}
+                                className={`flex-1 py-2 px-4 rounded-md transition-all font-medium text-sm ${
+                                    authMode === "signup"
+                                        ? "bg-blue-600 text-white"
+                                        : "text-slate-400 hover:text-slate-300"
+                                }`}
+                            >
+                                Sign Up
+                            </button>
+                        </div>
+                    )}
 
                     {/* Sign In Form */}
                     {authMode === "signin" && (
@@ -266,22 +343,23 @@ export default function LoginPage() {
                                 </div>
                             </div>
 
-                            {/* Email */}
+                            {/* Email or Phone */}
                             <div>
-                                <Label htmlFor="email">Email Address</Label>
+                                <Label htmlFor="emailOrPhone">Email or Phone</Label>
                                 <div className="relative mt-2">
                                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                                     <Input
-                                        id="email"
-                                        type="email"
-                                        placeholder="user@hospital.com"
-                                        value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
+                                        id="emailOrPhone"
+                                        type="text"
+                                        placeholder="user@hospital.com or 9876543210"
+                                        value={emailOrPhone}
+                                        onChange={(e) => setEmailOrPhone(e.target.value)}
                                         className="pl-10"
                                         required
                                         disabled={isLoading}
                                     />
                                 </div>
+                                <p className="text-xs text-slate-400 mt-1">Use email or phone number</p>
                             </div>
 
                             {/* Password */}
@@ -406,6 +484,40 @@ export default function LoginPage() {
                                 </div>
                             </div>
 
+                            {/* Age */}
+                            <div>
+                                <Label htmlFor="age">Age</Label>
+                                <div className="relative mt-2">
+                                    <Input
+                                        id="age"
+                                        type="number"
+                                        placeholder="28"
+                                        min="0"
+                                        max="150"
+                                        value={age}
+                                        onChange={(e) => setAge(e.target.value)}
+                                        className="pl-4"
+                                        disabled={isLoading}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Medical History */}
+                            <div>
+                                <Label htmlFor="medicalHistory">Medical History</Label>
+                                <div className="relative mt-2">
+                                    <textarea
+                                        id="medicalHistory"
+                                        placeholder="e.g., No allergies, Hypertension, Diabetes..."
+                                        value={medicalHistory}
+                                        onChange={(e) => setMedicalHistory(e.target.value)}
+                                        className="w-full rounded-lg border border-slate-600 bg-slate-800/50 px-4 py-2 text-slate-50 placeholder-slate-500 transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
+                                        rows={3}
+                                        disabled={isLoading}
+                                    />
+                                </div>
+                            </div>
+
                             {/* Password */}
                             <div>
                                 <Label htmlFor="signUpPassword">Password *</Label>
@@ -481,6 +593,72 @@ export default function LoginPage() {
                                 isLoading={isLoading}
                             >
                                 Create Patient Account
+                            </Button>
+                        </form>
+                    )}
+
+                    {/* Email Verification Form */}
+                    {authMode === "verify" && (
+                        <form onSubmit={handleVerifyEmail} className="space-y-5">
+                            <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 text-sm text-blue-300">
+                                Verification email sent to <strong>{verifyingEmail}</strong>
+                            </div>
+
+                            {/* Verification Code */}
+                            <div>
+                                <Label htmlFor="verificationCode">Verification Code *</Label>
+                                <div className="relative mt-2">
+                                    <Input
+                                        id="verificationCode"
+                                        type="text"
+                                        placeholder="Enter 6-digit code from email"
+                                        value={verificationCode}
+                                        onChange={(e) => setVerificationCode(e.target.value)}
+                                        className="pl-4 text-center tracking-widest text-lg"
+                                        maxLength={6}
+                                        required
+                                        disabled={isLoading}
+                                    />
+                                </div>
+                                <p className="text-xs text-slate-400 mt-1">Check your email for the verification code</p>
+                            </div>
+
+                            {/* Submit Button */}
+                            <Button
+                                type="submit"
+                                variant="primary"
+                                size="lg"
+                                className="w-full"
+                                isLoading={isLoading}
+                            >
+                                Verify Email
+                            </Button>
+
+                            {/* Resend Email Button */}
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                size="lg"
+                                className="w-full"
+                                onClick={handleResendEmail}
+                                disabled={!canResendEmail || isLoading}
+                            >
+                                {canResendEmail ? "Resend Verification Email" : "Resend in 60s"}
+                            </Button>
+
+                            {/* Back to Signup */}
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="lg"
+                                className="w-full"
+                                onClick={() => {
+                                    setAuthMode("signup");
+                                    setVerificationCode("");
+                                    setVerifyingEmail("");
+                                }}
+                            >
+                                Back to Sign Up
                             </Button>
                         </form>
                     )}

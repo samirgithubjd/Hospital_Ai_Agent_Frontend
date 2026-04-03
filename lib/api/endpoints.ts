@@ -2,7 +2,8 @@ import client from "./client";
 import { setToken, setUserRole, setUserId } from "./auth";
 
 export interface LoginPayload {
-    email: string;
+    email?: string;
+    phone?: string;
     password: string;
     role?: "admin" | "doctor" | "patient";
 }
@@ -15,6 +16,8 @@ export interface SignUpPayload {
     firstName?: string;
     lastName?: string;
     phone?: string;
+    age?: number;
+    medicalHistory?: string;
 }
 
 export interface AdminUser {
@@ -52,6 +55,7 @@ export interface LoginResponse {
 export async function login(payload: LoginPayload): Promise<LoginResponse> {
     const response = await client.post<BackendLoginResponse>("/auth/login", {
         email: payload.email,
+        phone: payload.phone,
         password: payload.password,
         role: payload.role || "admin",
     });
@@ -94,6 +98,8 @@ export async function signUpPatient(payload: SignUpPayload): Promise<LoginRespon
         firstName: payload.firstName,
         lastName: payload.lastName,
         phone: payload.phone,
+        age: payload.age,
+        medicalHistory: payload.medicalHistory,
         role: "patient",
     });
 
@@ -105,16 +111,16 @@ export async function signUpPatient(payload: SignUpPayload): Promise<LoginRespon
         throw new Error("No user data in response");
     }
 
-    if (token) {
-        setToken(token);
-        // Also store role and userId in cookies for middleware
-        const userRole = "patient";
-        setUserRole(userRole);
-        setUserId(userData.id);
-    }
+    // Don't set token yet - user must verify email first
+    // if (token) {
+    //     setToken(token);
+    //     const userRole = "patient";
+    //     setUserRole(userRole);
+    //     setUserId(userData.id);
+    // }
 
     return {
-        token,
+        token: "",
         user: {
             id: userData.id,
             email: userData.email,
@@ -122,6 +128,45 @@ export async function signUpPatient(payload: SignUpPayload): Promise<LoginRespon
             role: "patient",
         },
     };
+}
+
+export async function verifyEmail(token: string): Promise<LoginResponse> {
+    const response = await client.post<BackendLoginResponse>("/auth/verify-email", {
+        token,
+    });
+
+    const { token: authToken } = response.data.data;
+    const userData = response.data.data.user || 
+                     response.data.data.patient;
+
+    if (!userData) {
+        throw new Error("No user data in response");
+    }
+
+    if (authToken) {
+        setToken(authToken);
+        const userRole = "patient";
+        setUserRole(userRole);
+        setUserId(userData.id);
+    }
+
+    return {
+        token: authToken,
+        user: {
+            id: userData.id,
+            email: userData.email,
+            name: userData.email?.split("@")[0],
+            role: "patient",
+        },
+    };
+}
+
+export async function resendVerificationEmail(email: string): Promise<{ success: boolean; message: string }> {
+    const response = await client.post("/auth/resend-verification", {
+        email,
+    });
+
+    return response.data;
 }
 
 export async function checkHealth(): Promise<{ status: string }> {
