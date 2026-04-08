@@ -17,11 +17,11 @@ type AuthMode = "signin" | "signup" | "verify";
     //admin@hospital.com
     //admin123
 //doctor login:
-    //jay@gmail.com
-    //123456
+    //doctor@hospital.com
+    //doctor123
 //patient login:
-    //test@test.com
-    //123456
+    //patient@hospital.com
+    //patient123
 
 export default function LoginPage() {
     const router = useRouter();
@@ -35,10 +35,8 @@ export default function LoginPage() {
     >("checking");
 
     // Sign in form
-    const [email, setEmail] = useState("");
     const [emailOrPhone, setEmailOrPhone] = useState(""); // For flexible login
     const [password, setPassword] = useState("");
-    const [role, setRole] = useState<UserRole>("admin");
 
     // Sign up form
     // const [userName, setUserName] = useState("mehul");
@@ -74,26 +72,12 @@ export default function LoginPage() {
         setIsLoading(true);
 
         try {
-            // Determine if input is email or phone
-            const isEmail = emailOrPhone.includes("@");
-            
             const response = await login({
-                email: isEmail ? emailOrPhone : undefined,
-                phone: !isEmail ? emailOrPhone : undefined,
+                contact: emailOrPhone,
                 password,
-                role,
             });
 
             console.log("Login response:", response);
-            
-            // Validate that the returned role matches the selected role
-            if (response.user.role !== role) {
-                setIsLoading(false);
-                toast.error(
-                    `Invalid credentials for ${role}. This account is for a ${response.user.role}.`
-                );
-                return;
-            }
 
             console.log("Setting user:", response.user);
 
@@ -104,9 +88,10 @@ export default function LoginPage() {
             toast.success("Login successful! Redirecting...");
 
             // Role-based routing
-            const redirectUrl = role === "admin" 
+            const userRole = response.user.role;
+            const redirectUrl = userRole === "admin" 
                 ? "/dashboard"
-                : role === "doctor"
+                : userRole === "doctor"
                 ? "/doctor/dashboard"
                 : "/patient/dashboard";
 
@@ -146,13 +131,13 @@ export default function LoginPage() {
         try {
             const response = await signUpPatient({
                 email: signUpEmail,
+                username: firstName + " " + lastName,
                 password: signUpPassword,
                 confirmPassword: signUpConfirmPassword,
-                username: firstName + " " + lastName,
                 firstName,
                 lastName,
                 phone,
-                age: age ? parseInt(age) : undefined,
+                age: age ? parseInt(age) : 0,
                 medicalHistory,
             });
 
@@ -322,27 +307,6 @@ export default function LoginPage() {
                     {/* Sign In Form */}
                     {authMode === "signin" && (
                         <form onSubmit={handleSignIn} className="space-y-5">
-                            {/* Role Selection */}
-                            <div>
-                                <Label htmlFor="role">Login As</Label>
-                                <div className="mt-2 grid grid-cols-3 gap-2">
-                                    {(["admin", "doctor", "patient"] as UserRole[]).map((r) => (
-                                        <button
-                                            key={r}
-                                            type="button"
-                                            onClick={() => setRole(r)}
-                                            className={`px-3 py-2 rounded-lg font-medium transition-all text-sm capitalize ${
-                                                role === r
-                                                    ? "bg-blue-600 text-white border border-blue-500"
-                                                    : "bg-slate-700/50 text-slate-300 border border-slate-600 hover:bg-slate-700"
-                                            }`}
-                                        >
-                                            {r}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
                             {/* Email or Phone */}
                             <div>
                                 <Label htmlFor="emailOrPhone">Email or Phone</Label>
@@ -403,7 +367,7 @@ export default function LoginPage() {
                                 className="w-full"
                                 isLoading={isLoading}
                             >
-                                Sign In as {role.charAt(0).toUpperCase() + role.slice(1)}
+                                Sign In
                             </Button>
                         </form>
                     )}

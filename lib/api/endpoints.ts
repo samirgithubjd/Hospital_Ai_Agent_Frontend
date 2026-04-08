@@ -2,22 +2,42 @@ import client from "./client";
 import { setToken, setUserRole, setUserId } from "./auth";
 
 export interface LoginPayload {
-    email?: string;
-    phone?: string;
+    contact: string; // email or phone number
     password: string;
-    role?: "admin" | "doctor" | "patient";
 }
 
-export interface SignUpPayload {
+export interface SignUpPatientPayload {
     email: string;
+    username: string;
     password: string;
     confirmPassword: string;
-    username?: string;
-    firstName?: string;
-    lastName?: string;
-    phone?: string;
-    age?: number;
-    medicalHistory?: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+    age: number;
+    medicalHistory: string;
+}
+
+export interface CreateAdminPayload {
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+}
+
+export interface CreateDoctorPayload {
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+    specialization: string;
+    department: string;
+    licenseNumber: string;
+    city: string;
+    experience: number;
+    mobileNumber: string;
 }
 
 export interface AdminUser {
@@ -54,10 +74,8 @@ export interface LoginResponse {
 
 export async function login(payload: LoginPayload): Promise<LoginResponse> {
     const response = await client.post<BackendLoginResponse>("/auth/login", {
-        email: payload.email,
-        phone: payload.phone,
+        contact: payload.contact,
         password: payload.password,
-        role: payload.role || "admin",
     });
 
     const { token } = response.data.data;
@@ -89,18 +107,17 @@ export async function login(payload: LoginPayload): Promise<LoginResponse> {
     };
 }
 
-export async function signUpPatient(payload: SignUpPayload): Promise<LoginResponse> {
-    const response = await client.post<BackendLoginResponse>("/auth/register", {
+export async function signUpPatient(payload: SignUpPatientPayload): Promise<LoginResponse> {
+    const response = await client.post<BackendLoginResponse>("/api/auth/register", {
         email: payload.email,
+        username: payload.username,
         password: payload.password,
         confirmPassword: payload.confirmPassword,
-        username: payload.username,
         firstName: payload.firstName,
         lastName: payload.lastName,
         phone: payload.phone,
         age: payload.age,
         medicalHistory: payload.medicalHistory,
-        role: "patient",
     });
 
     const { token } = response.data.data;
@@ -126,6 +143,64 @@ export async function signUpPatient(payload: SignUpPayload): Promise<LoginRespon
             email: userData.email,
             name: payload.firstName || userData.email?.split("@")[0],
             role: "patient",
+        },
+    };
+}
+
+export async function createAdmin(payload: CreateAdminPayload): Promise<LoginResponse> {
+    const response = await client.post<BackendLoginResponse>("/api/admin/create-admin", payload);
+
+    const { token } = response.data.data;
+    const userData = response.data.data.user || 
+                     response.data.data.admin;
+
+    if (!userData) {
+        throw new Error("No user data in response");
+    }
+
+    if (token) {
+        setToken(token);
+        const userRole = "admin";
+        setUserRole(userRole);
+        setUserId(userData.id);
+    }
+
+    return {
+        token,
+        user: {
+            id: userData.id,
+            email: userData.email,
+            name: userData.email?.split("@")[0],
+            role: "admin",
+        },
+    };
+}
+
+export async function createDoctor(payload: CreateDoctorPayload): Promise<LoginResponse> {
+    const response = await client.post<BackendLoginResponse>("/api/admin/create-doctor", payload);
+
+    const { token } = response.data.data;
+    const userData = response.data.data.user || 
+                     response.data.data.doctor;
+
+    if (!userData) {
+        throw new Error("No user data in response");
+    }
+
+    if (token) {
+        setToken(token);
+        const userRole = "doctor";
+        setUserRole(userRole);
+        setUserId(userData.id);
+    }
+
+    return {
+        token,
+        user: {
+            id: userData.id,
+            email: userData.email,
+            name: userData.email?.split("@")[0],
+            role: "doctor",
         },
     };
 }
