@@ -7,21 +7,21 @@ import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/input";
-import { login, signUpPatient, checkHealth, verifyEmail, resendVerificationEmail } from "@/lib/api/endpoints";
+import { login, signUpPatient, checkHealth } from "@/lib/api/endpoints";
 import { useAuth } from "@/lib/auth-context";
 
 type UserRole = "admin" | "doctor" | "patient";
-type AuthMode = "signin" | "signup" | "verify";
+type AuthMode = "signin" | "signup";
 
 //admin login:
     //admin@hospital.com
     //admin123
 //doctor login:
-    //doctor@hospital.com
-    //doctor123
+    //jay@gmail.com
+    //123456
 //patient login:
-    //patient@hospital.com
-    //patient123
+    //test@test.com
+    //123456
 
 export default function LoginPage() {
     const router = useRouter();
@@ -35,8 +35,10 @@ export default function LoginPage() {
     >("checking");
 
     // Sign in form
+    const [email, setEmail] = useState("");
     const [emailOrPhone, setEmailOrPhone] = useState(""); // For flexible login
     const [password, setPassword] = useState("");
+    const [role, setRole] = useState<UserRole>("admin");
 
     // Sign up form
     // const [userName, setUserName] = useState("mehul");
@@ -48,11 +50,6 @@ export default function LoginPage() {
     const [phone, setPhone] = useState("");
     const [age, setAge] = useState("");
     const [medicalHistory, setMedicalHistory] = useState("");
-
-    // Email verification
-    const [verificationCode, setVerificationCode] = useState("");
-    const [verifyingEmail, setVerifyingEmail] = useState("");
-    const [canResendEmail, setCanResendEmail] = useState(false);
 
     React.useEffect(() => {
         // Check API health on mount
@@ -72,12 +69,26 @@ export default function LoginPage() {
         setIsLoading(true);
 
         try {
+            // Determine if input is email or phone
+            const isEmail = emailOrPhone.includes("@");
+            
             const response = await login({
-                contact: emailOrPhone,
+                email: isEmail ? emailOrPhone : undefined,
+                phone: !isEmail ? emailOrPhone : undefined,
                 password,
+                role,
             });
 
             console.log("Login response:", response);
+            
+            // Validate that the returned role matches the selected role
+            if (response.user.role !== role) {
+                setIsLoading(false);
+                toast.error(
+                    `Invalid credentials for ${role}. This account is for a ${response.user.role}.`
+                );
+                return;
+            }
 
             console.log("Setting user:", response.user);
 
@@ -88,10 +99,9 @@ export default function LoginPage() {
             toast.success("Login successful! Redirecting...");
 
             // Role-based routing
-            const userRole = response.user.role;
-            const redirectUrl = userRole === "admin" 
+            const redirectUrl = role === "admin" 
                 ? "/dashboard"
-                : userRole === "doctor"
+                : role === "doctor"
                 ? "/doctor/dashboard"
                 : "/patient/dashboard";
 
@@ -131,28 +141,26 @@ export default function LoginPage() {
         try {
             const response = await signUpPatient({
                 email: signUpEmail,
-                username: firstName + " " + lastName,
                 password: signUpPassword,
                 confirmPassword: signUpConfirmPassword,
+                username: firstName + " " + lastName,
                 firstName,
                 lastName,
                 phone,
-                age: age ? parseInt(age) : 0,
+                age: age ? parseInt(age) : undefined,
                 medicalHistory,
             });
 
             console.log("Sign up response:", response);
 
-            // Store email for verification
-            setVerifyingEmail(signUpEmail);
-            
-            // Show success message
-            toast.success("Sign up successful! Please verify your email.");
+            // Set user
+            setUser(response.user);
 
-            // Move to verification step
-            setAuthMode("verify");
-            setVerificationCode(""); // Reset verification code
-            setCanResendEmail(false);
+            // Show success message
+            toast.success("Account created successfully! Redirecting...");
+
+            // Redirect to patient dashboard
+            router.replace("/patient/dashboard");
         } catch (error: any) {
             setIsLoading(false);
             const message =
@@ -165,63 +173,7 @@ export default function LoginPage() {
         }
     };
 
-    const handleVerifyEmail = async (e: React.FormEvent) => {
-        e.preventDefault();
 
-        if (!verificationCode) {
-            toast.error("Please enter verification code");
-            return;
-        }
-
-        setIsLoading(true);
-
-        try {
-            const response = await verifyEmail(verificationCode);
-
-            console.log("Email verification response:", response);
-
-            // Set user
-            setUser(response.user);
-
-            toast.success("Email verified! Redirecting to dashboard...");
-
-            // Redirect to patient dashboard
-            router.replace("/patient/dashboard");
-        } catch (error: any) {
-            setIsLoading(false);
-            const message =
-                error.response?.data?.message ||
-                "Email verification failed. Please try again.";
-            console.error("Verification error:", error);
-            toast.error(message);
-        }
-    };
-
-    const handleResendEmail = async () => {
-        if (!verifyingEmail) {
-            toast.error("Email not found");
-            return;
-        }
-
-        setIsLoading(true);
-
-        try {
-            const response = await resendVerificationEmail(verifyingEmail);
-            toast.success(response.message || "Verification email sent!");
-            setCanResendEmail(false);
-            
-            // Disable resend button for 60 seconds
-            setTimeout(() => setCanResendEmail(true), 60000);
-        } catch (error: any) {
-            const message =
-                error.response?.data?.message ||
-                "Failed to resend verification email";
-            console.error("Resend error:", error);
-            toast.error(message);
-        } finally {
-            setIsLoading(false);
-        }
-    };
 
     return (
         <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
@@ -277,8 +229,7 @@ export default function LoginPage() {
                     </div>
 
                     {/* Auth Mode Tabs */}
-                    {authMode !== "verify" && (
-                        <div className="mb-6 flex gap-2 bg-slate-700/30 p-1 rounded-lg border border-slate-700">
+                    <div className="mb-6 flex gap-2 bg-slate-700/30 p-1 rounded-lg border border-slate-700">
                             <button
                                 type="button"
                                 onClick={() => setAuthMode("signin")}
@@ -302,11 +253,32 @@ export default function LoginPage() {
                                 Sign Up
                             </button>
                         </div>
-                    )}
+                    )
 
                     {/* Sign In Form */}
                     {authMode === "signin" && (
                         <form onSubmit={handleSignIn} className="space-y-5">
+                            {/* Role Selection */}
+                            <div>
+                                <Label htmlFor="role">Login As</Label>
+                                <div className="mt-2 grid grid-cols-3 gap-2">
+                                    {(["admin", "doctor", "patient"] as UserRole[]).map((r) => (
+                                        <button
+                                            key={r}
+                                            type="button"
+                                            onClick={() => setRole(r)}
+                                            className={`px-3 py-2 rounded-lg font-medium transition-all text-sm capitalize ${
+                                                role === r
+                                                    ? "bg-blue-600 text-white border border-blue-500"
+                                                    : "bg-slate-700/50 text-slate-300 border border-slate-600 hover:bg-slate-700"
+                                            }`}
+                                        >
+                                            {r}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
                             {/* Email or Phone */}
                             <div>
                                 <Label htmlFor="emailOrPhone">Email or Phone</Label>
@@ -367,7 +339,7 @@ export default function LoginPage() {
                                 className="w-full"
                                 isLoading={isLoading}
                             >
-                                Sign In
+                                Sign In as {role.charAt(0).toUpperCase() + role.slice(1)}
                             </Button>
                         </form>
                     )}
@@ -557,72 +529,6 @@ export default function LoginPage() {
                                 isLoading={isLoading}
                             >
                                 Create Patient Account
-                            </Button>
-                        </form>
-                    )}
-
-                    {/* Email Verification Form */}
-                    {authMode === "verify" && (
-                        <form onSubmit={handleVerifyEmail} className="space-y-5">
-                            <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 text-sm text-blue-300">
-                                Verification email sent to <strong>{verifyingEmail}</strong>
-                            </div>
-
-                            {/* Verification Code */}
-                            <div>
-                                <Label htmlFor="verificationCode">Verification Code *</Label>
-                                <div className="relative mt-2">
-                                    <Input
-                                        id="verificationCode"
-                                        type="text"
-                                        placeholder="Enter 6-digit code from email"
-                                        value={verificationCode}
-                                        onChange={(e) => setVerificationCode(e.target.value)}
-                                        className="pl-4 text-center tracking-widest text-lg"
-                                        maxLength={6}
-                                        required
-                                        disabled={isLoading}
-                                    />
-                                </div>
-                                <p className="text-xs text-slate-400 mt-1">Check your email for the verification code</p>
-                            </div>
-
-                            {/* Submit Button */}
-                            <Button
-                                type="submit"
-                                variant="primary"
-                                size="lg"
-                                className="w-full"
-                                isLoading={isLoading}
-                            >
-                                Verify Email
-                            </Button>
-
-                            {/* Resend Email Button */}
-                            <Button
-                                type="button"
-                                variant="secondary"
-                                size="lg"
-                                className="w-full"
-                                onClick={handleResendEmail}
-                                disabled={!canResendEmail || isLoading}
-                            >
-                                {canResendEmail ? "Resend Verification Email" : "Resend in 60s"}
-                            </Button>
-
-                            {/* Back to Signup */}
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="lg"
-                                className="w-full"
-                                onClick={() => {
-                                    setAuthMode("signup");
-                                    setVerificationCode("");
-                                    setVerifyingEmail("");
-                                }}
-                            >
-                                Back to Sign Up
                             </Button>
                         </form>
                     )}
